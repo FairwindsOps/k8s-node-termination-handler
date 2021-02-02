@@ -15,12 +15,14 @@
 package termination
 
 import (
+	"context"
+
 	"github.com/golang/glog"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/kubernetes/pkg/apis/core/helper"
 )
 
 type nodeTaintHandler struct {
@@ -53,7 +55,7 @@ func (n *nodeTaintHandler) ApplyTaint() error {
 		updated bool
 	)
 
-	node, err = n.client.CoreV1().Nodes().Get(n.node, metav1.GetOptions{})
+	node, err = n.client.CoreV1().Nodes().Get(context.TODO(), n.node, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -66,7 +68,7 @@ func (n *nodeTaintHandler) ApplyTaint() error {
 		glog.V(4).Infof("Node %q taints after removal; updated %v: %v", n.node, updated, node.Spec.Taints)
 	}
 	if updated {
-		if _, err = n.client.CoreV1().Nodes().Update(node); err != nil {
+		if _, err = n.client.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
 			glog.V(2).Infof("Failed to update node object: %v", err)
 			return err
 		}
@@ -76,7 +78,7 @@ func (n *nodeTaintHandler) ApplyTaint() error {
 }
 
 func (n *nodeTaintHandler) RemoveTaint() error {
-	node, err := n.client.CoreV1().Nodes().Get(n.node, metav1.GetOptions{})
+	node, err := n.client.CoreV1().Nodes().Get(context.TODO(), n.node, metav1.GetOptions{})
 	if err != nil {
 		glog.V(2).Infof("Failed to remove taint: %v", err)
 		return err
@@ -89,7 +91,7 @@ func (n *nodeTaintHandler) RemoveTaint() error {
 		node, updated = removeTaint(node, n.taint)
 	}
 	if updated {
-		if _, err = n.client.CoreV1().Nodes().Update(node); err != nil {
+		if _, err = n.client.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 		// Log an event that a termination is impending.
@@ -108,7 +110,7 @@ func addOrUpdateTaint(node *v1.Node, taint *v1.Taint) (*v1.Node, bool) {
 	updated := false
 	for i := range nodeTaints {
 		if taint.MatchTaint(&nodeTaints[i]) {
-			if helper.Semantic.DeepEqual(*taint, nodeTaints[i]) {
+			if equality.Semantic.DeepEqual(*taint, nodeTaints[i]) {
 				return newNode, false
 			}
 			newTaints = append(newTaints, *taint)

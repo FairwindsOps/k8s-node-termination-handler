@@ -15,11 +15,12 @@
 package termination
 
 import (
+	"context"
 	"time"
 
 	"github.com/golang/glog"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -55,7 +56,7 @@ func NewPodEvictionHandler(node string, client *client.Clientset, recorder recor
 
 func (p *podEvictionHandler) EvictPods(excludePods map[string]string, timeout time.Duration) error {
 	options := metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("spec.nodeName", string(p.node)).String()}
-	pods, err := p.client.Pods(metav1.NamespaceAll).List(options)
+	pods, err := p.client.Pods(metav1.NamespaceAll).List(context.TODO(), options)
 	if err != nil {
 		glog.V(2).Infof("Failed to list pods - %v", err)
 		return err
@@ -78,7 +79,7 @@ func (p *podEvictionHandler) EvictPods(excludePods map[string]string, timeout ti
 	if timeout >= 2*p.systemPodGracePeriod {
 		gracePeriod = int64(timeout.Seconds() - p.systemPodGracePeriod.Seconds())
 	}
-	deleteOptions := &metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
+	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
 	if err := p.deletePods(regularPods, deleteOptions); err != nil {
 		return err
 	}
@@ -92,12 +93,12 @@ func (p *podEvictionHandler) EvictPods(excludePods map[string]string, timeout ti
 	return nil
 }
 
-func (p *podEvictionHandler) deletePods(pods []v1.Pod, deleteOptions *metav1.DeleteOptions) error {
+func (p *podEvictionHandler) deletePods(pods []v1.Pod, deleteOptions metav1.DeleteOptions) error {
 	for _, pod := range pods {
 		p.recorder.Eventf(&pod, v1.EventTypeWarning, eventReason, "Node %q is about to be terminated. Evicting pod prior to node termination.", p.node)
 		// Delete the pod with the specified timeout.
 		glog.V(4).Infof("About to delete pod %q in namespace %q within grace period %d seconds", pod.Name, pod.Namespace, *deleteOptions.GracePeriodSeconds)
-		if err := p.client.Pods(pod.Namespace).Delete(pod.Name, deleteOptions); err != nil {
+		if err := p.client.Pods(pod.Namespace).Delete(context.TODO(), pod.Name, deleteOptions); err != nil {
 			glog.V(2).Infof("Failed to delete pod %q in namespace %q - %v", pod.Name, pod.Namespace, err)
 			return err
 		}
@@ -114,7 +115,7 @@ func (p *podEvictionHandler) deletePods(pods []v1.Pod, deleteOptions *metav1.Del
 // waitForPodNotFound returns an error if it takes too long for the pod to fully terminate.
 func (p *podEvictionHandler) waitForPodNotFound(podName, ns string, timeout time.Duration) error {
 	return wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-		_, err := p.client.Pods(ns).Get(podName, metav1.GetOptions{})
+		_, err := p.client.Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
 			return true, nil // done
 		}

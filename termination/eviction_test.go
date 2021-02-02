@@ -15,9 +15,10 @@
 package termination
 
 import (
+	"context"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -92,7 +93,7 @@ func TestEvictions(t *testing.T) {
 		excludePods := map[string]string{test.excludedPod.name: test.excludedPod.namespace}
 		evictionHandler.EvictPods(excludePods, 30 /* timeout */)
 		options := metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("spec.nodeName", string("localhost")).String()}
-		pods, err := kubeClientset.CoreV1().Pods(metav1.NamespaceAll).List(options)
+		pods, err := kubeClientset.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), options)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -16,7 +16,6 @@ package termination
 
 import (
 	"reflect"
-	"syscall"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -81,9 +80,12 @@ func (n *nodeTerminationHandler) processNodeState() error {
 
 func (n *nodeTerminationHandler) rebootNode() error {
 	// Sync the filesystem.
-	syscall.Sync()
+	//sys.Sync()
 	// Reboot the node.
-	return syscall.Reboot(syscall.LINUX_REBOOT_CMD_RESTART2)
+	//return sys.Reboot(sys.LINUX_REBOOT_CMD_RESTART2)
+
+	//TODO Fixme
+	return nil
 }
 
 func (n *nodeTerminationHandler) Start() error {
