@@ -72,6 +72,8 @@ func (p *podEvictionHandler) EvictPods(excludePods map[string]string, timeout ti
 			}
 		}
 	}
+	klog.V(8).Infof("found %d system pods - %v", len(systemPods), systemPods)
+	klog.V(8).Infof("found %d regular pods - %v", len(regularPods), regularPods)
 	// Evict regular pods first.
 	var gracePeriod int64
 	// Reserve time for system pods if regular pods have adequate time to exit gracefully.
