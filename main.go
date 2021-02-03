@@ -54,7 +54,6 @@ func main() {
 	} else {
 		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
-	klog.InitFlags(nil)
 	flag.Parse()
 	client, err := getKubeClient()
 	if err != nil {
