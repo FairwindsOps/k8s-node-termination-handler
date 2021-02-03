@@ -18,10 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
-
 	"cloud.google.com/go/compute/metadata"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 )
 
 const (
@@ -84,7 +83,7 @@ func pendingTermination() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	glog.V(4).Infof("Current states: Regular: %q, PVM: %q", state, pvmState)
+	klog.V(4).Infof("Current states: Regular: %q, PVM: %q", state, pvmState)
 	return (state == maintenanceEventTerminate || pvmState == maintenanceEventTrue), nil
 }
 
@@ -129,20 +128,20 @@ func (g *gceTerminationSource) resetPendingTermination() {
 
 func (g *gceTerminationSource) handleMaintenanceEvents(state string, exists bool) error {
 	if !exists {
-		glog.Errorf("Maintenance Event Metadata API deleted unexpectedly")
+		klog.Errorf("Maintenance Event Metadata API deleted unexpectedly")
 		return nil
 	}
-	glog.Infof("Handling maintenance event with state: %q", state)
+	klog.Infof("Handling maintenance event with state: %q", state)
 
 	// Regular GPU VMs are expected to observe `TERMINATE_ON_HOST_MAINTENANCE` on `maintenance-event` metadata variable.
 	// PVMs are expected to observe `TRUE` on `preempted` metadata variable.
 	if (g.state.NeedsReboot && state == maintenanceEventTerminate) || // Regular VM
 		(!g.state.NeedsReboot && state == maintenanceEventTrue) { // PVM
-		glog.Infof("Recording impending termination")
+		klog.Infof("Recording impending termination")
 		g.storePendingTermination()
 		g.updateChannel <- g.state
 	} else {
-		glog.Infof("Removing any impending termination records")
+		klog.Infof("Removing any impending termination records")
 		g.resetPendingTermination()
 		g.updateChannel <- g.state
 	}
@@ -156,14 +155,14 @@ func (g *gceTerminationSource) WatchState() <-chan NodeTerminationState {
 	go wait.Forever(func() {
 		err := metadata.Subscribe(maintenanceEventSuffix, g.handleMaintenanceEvents)
 		if err != nil {
-			glog.Errorf("Failed to get maintenance status for node %q - %v", g.state.NodeName, err)
+			klog.Errorf("Failed to get maintenance status for node %q - %v", g.state.NodeName, err)
 			return
 		}
 	}, time.Second)
 	go wait.Forever(func() {
 		err := metadata.Subscribe(preemptedEventSuffix, g.handleMaintenanceEvents)
 		if err != nil {
-			glog.Errorf("Failed to get preemptible maintenance status for node %q - %v", g.state.NodeName, err)
+			klog.Errorf("Failed to get preemptible maintenance status for node %q - %v", g.state.NodeName, err)
 			return
 		}
 	}, time.Second)

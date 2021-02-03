@@ -19,8 +19,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/golang/glog"
+	"k8s.io/klog"
 )
 
 type nodeTerminationHandler struct {
@@ -47,10 +46,10 @@ func NewNodeTerminationHandler(
 func (n *nodeTerminationHandler) processNodeState() error {
 	// Handle regular node state.
 	if !n.currentNodeState.PendingTermination {
-		glog.V(4).Infof("No pending terminations. Removing taint")
+		klog.V(4).Infof("No pending terminations. Removing taint")
 		return n.taintHandler.RemoveTaint()
 	}
-	glog.V(4).Infof("Current node state: %v", n.currentNodeState)
+	klog.V(4).Infof("Current node state: %v", n.currentNodeState)
 	// Handle a node that is about to be terminated.
 	// Log an event that a termination is impending.
 	// Reserve some time for restarting the node.
@@ -60,19 +59,19 @@ func (n *nodeTerminationHandler) processNodeState() error {
 	if timeout.Seconds() >= 120 {
 		timeout = timeout - time.Minute
 	}
-	glog.V(4).Infof("Applying taint prior to handling termination")
+	klog.V(4).Infof("Applying taint prior to handling termination")
 	if err := sendSlack(); err != nil {
-		glog.Errorf("Failed to send slack: %v", err)
+		klog.Errorf("Failed to send slack: %v", err)
 	}
 	if err := n.taintHandler.ApplyTaint(); err != nil {
 		return err
 	}
-	glog.V(4).Infof("Evicting all pods from the node")
+	klog.V(4).Infof("Evicting all pods from the node")
 	if err := n.podEvictionHandler.EvictPods(n.excludePods, timeout); err != nil {
 		return err
 	}
 	if n.currentNodeState.NeedsReboot {
-		glog.V(4).Infof("Rebooting the node")
+		klog.V(4).Infof("Rebooting the node")
 		return n.rebootNode()
 	}
 	return nil
@@ -90,9 +89,9 @@ func (n *nodeTerminationHandler) rebootNode() error {
 
 func (n *nodeTerminationHandler) Start() error {
 	n.currentNodeState = n.terminationSource.GetState()
-	glog.V(4).Infof("Processing initial node state")
+	klog.V(4).Infof("Processing initial node state")
 	if err := n.processNodeState(); err != nil {
-		glog.V(2).Infof("Failed to process initial node state - %v", err)
+		klog.V(2).Infof("Failed to process initial node state - %v", err)
 		return err
 	}
 	for state := range n.terminationSource.WatchState() {
@@ -105,7 +104,7 @@ func (n *nodeTerminationHandler) Start() error {
 			}, func() (bool, error) {
 				err := n.processNodeState()
 				if err != nil {
-					glog.Errorf("Failed to process node state update.\nState: %v\nError: %v", n.currentNodeState, err)
+					klog.Errorf("Failed to process node state update.\nState: %v\nError: %v", n.currentNodeState, err)
 					return false, nil
 				}
 				return true, nil

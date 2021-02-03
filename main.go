@@ -22,16 +22,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/k8s-node-termination-handler/termination"
-	"github.com/golang/glog"
-
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog"
+
+	"github.com/GoogleCloudPlatform/k8s-node-termination-handler/termination"
 )
 
 const eventSource = "NodeTerminationHandler"
@@ -56,27 +56,27 @@ func main() {
 	flag.Parse()
 	client, err := getKubeClient()
 	if err != nil {
-		glog.Fatalf("Failed to get kubernetes API Server Client. Error: %v", err)
+		klog.Fatalf("Failed to get kubernetes API Server Client. Error: %v", err)
 	}
 	excludePods, err := processExcludePods()
 	if err != nil {
-		glog.Fatal(err)
+		klog.Fatal(err)
 	}
 	if *taintVar == "" && *annotationVar == "" {
-		glog.Fatalf("Must specify one of taint or annotation")
+		klog.Fatalf("Must specify one of taint or annotation")
 	}
 	taint, err := processTaint()
 	if err != nil {
-		glog.Fatal(err)
+		klog.Fatal(err)
 	}
-	glog.Infof("Excluding pods %v", excludePods)
+	klog.Infof("Excluding pods %v", excludePods)
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: client.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: eventSource})
 	gceTerminationSource, err := termination.NewGCETerminationSource(*regularVMTimeoutVar)
 	if err != nil {
-		glog.Fatal(err)
+		klog.Fatal(err)
 	}
 	nodeName := gceTerminationSource.GetState().NodeName
 	taintHandler := termination.NewNodeTaintHandler(taint, *annotationVar, nodeName, client, recorder)
@@ -84,9 +84,9 @@ func main() {
 	terminationHandler := termination.NewNodeTerminationHandler(gceTerminationSource, taintHandler, evictionHandler, excludePods)
 	err = terminationHandler.Start()
 	if err != nil {
-		glog.Fatal(err)
+		klog.Fatal(err)
 	}
-	glog.Fatalf("Unexpected execution flow")
+	klog.Fatalf("Unexpected execution flow")
 }
 
 func getKubeClient() (*kubernetes.Clientset, error) {
@@ -106,7 +106,7 @@ func getKubeClient() (*kubernetes.Clientset, error) {
 			return nil, err
 		}
 	}
-	glog.V(10).Infof("Using kube config: %+v", config)
+	klog.V(10).Infof("Using kube config: %+v", config)
 	// creates the clientset
 	return kubernetes.NewForConfig(config)
 }
